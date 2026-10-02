@@ -1,0 +1,411 @@
+<UserControl x:Class="BookmarkVault.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource WindowBgBrush}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,18,20,24">
+        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Text="设置" Style="{StaticResource PageTitleText}" />
+
+            <!-- 数据源 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,18,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Edge 书签来源" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="默认自动探测最近使用的 Edge 配置目录。如果检测不到，可以在这里手动指定（选择包含 Bookmarks 文件的目录，通常是 User Data\Default）。" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Style="{StaticResource DarkTextBox}"
+                                 Text="{Binding Settings.EdgeProfilePath, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="留空表示自动探测" />
+                        <Button Grid.Column="1" Content="浏览…" Style="{StaticResource GhostButton}"
+                                Margin="8,0,0,0" Click="Browse_Click" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Content="重新从 Edge 同步" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                                Command="{Binding SyncEdgeCommand}" />
+                        <Button Content="打开数据目录" Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenDataFolderCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 检测参数 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="检测参数" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="检测会向每个网站发一次请求。并发越高越快，但容易被目标站点限流。" />
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <TextBlock Text="单站超时（秒）" Style="{StaticResource CaptionText}" />
+                            <TextBox Style="{StaticResource DarkTextBox}" Margin="0,6,0,0"
+                                     Text="{Binding Settings.ProbeTimeoutSeconds}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="5,0">
+                            <TextBlock Text="并发数" Style="{StaticResource CaptionText}" />
+                            <TextBox Style="{StaticResource DarkTextBox}" Margin="0,6,0,0"
+                                     Text="{Binding Settings.ProbeConcurrency}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="10,0,0,0">
+                            <TextBlock Text="缓存有效（小时）" Style="{StaticResource CaptionText}" />
+                            <TextBox Style="{StaticResource DarkTextBox}" Margin="0,6,0,0"
+                                     Text="{Binding Settings.CacheHours}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Margin="0,16,0,0">
+                        <CheckBox Style="{StaticResource DarkCheckBox}" Margin="0,0,0,10"
+                                  Content="启动时自动检测当前列表前 60 条"
+                                  IsChecked="{Binding Settings.AutoProbeOnStartup, Mode=TwoWay}" />
+                        <CheckBox Style="{StaticResource DarkCheckBox}" Margin="0,0,0,10"
+                                  Content="打开网址时，如果该站有账号则弹出提示"
+                                  IsChecked="{Binding Settings.PromptAccountOnOpen, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="0" Margin="0,16,0,0">
+                        <Button Content="保存设置" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Left" Command="{Binding SaveSettingsCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 打开方式 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="打开方式" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="「打开网站」默认交给系统默认浏览器。想固定用某个浏览器就在这里选，列表来自系统里登记过的浏览器，扫不到可以手动指定 exe。网址是直接当参数传给浏览器的，浏览器已经开着时会开新标签页。右键菜单里的「用其他浏览器打开」只临时用一次，不改这里的选择。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <TextBlock Text="打开网址时使用" Style="{StaticResource CaptionText}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox Style="{StaticResource DarkComboBox}" Width="240"
+                                  ItemsSource="{Binding BrowserOptions}"
+                                  SelectedItem="{Binding BrowserLabel, Mode=TwoWay}"
+                                  ToolTip="列表来自系统里已登记的浏览器；也可以点右侧「浏览…」手动指定" />
+                        <Button Content="浏览…" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                Click="BrowseBrowser_Click" ToolTip="扫描不到时，手动指定浏览器的 exe" />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Text="{Binding BrowserPathHint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 维护工具：原顶部工具栏的批量操作 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="维护工具" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="批量操作都汇总在这里。执行时进度显示在左下角状态栏，检测中可以在顶部工具栏点「取消」。「添加网址」用来手动补一条 Edge 里没有的网址，支持一次粘贴多行，一行一个；手动加的和 Edge 同步来的可以用筛选面板里的「来源」组区分。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Content="＋ 添加网址" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Command="{Binding OpenAddBookmarkCommand}"
+                                ToolTip="手动添加网址，可以一次粘贴多条；底部状态栏也有同一个入口" />
+                        <Button Content="检测全部" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Command="{Binding ProbeAllCommand}"
+                                ToolTip="检测所有收藏，不受筛选影响" />
+                        <Button Content="检测当前筛选结果" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding ProbeVisibleCommand}"
+                                ToolTip="只检测左侧列表当前显示的条目（受视图、搜索和筛选影响）" />
+                        <Button Content="抓取图标" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding DownloadIconsCommand}"
+                                ToolTip="为还没有图标的网站下载 favicon" />
+                        <Button Content="抓取封面" Style="{StaticResource GhostButton}"
+                                Command="{Binding FetchCoversCommand}"
+                                ToolTip="为还没有封面的网站抓配图，抓到后连卡片封面一起补上" />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Text="「检测全部」会检测所有收藏，忽略筛选；「检测当前筛选结果」只检测左侧列表当前显示的条目，跟着视图、搜索和筛选走；「抓取图标」只为缺图标的网站补齐 favicon。" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="「抓取封面」同样只处理左侧列表当前显示的条目：打开网站首页找分享配图（og:image），找不到就退回正文图片，抓到后顺手裁一张 2:3 的卡片封面。手动设置过的封面不会被覆盖，自动抓来的可以再抓一次更新。单次最多 100 条，建议先在筛选面板的「封面」组里勾「无封面」再点。" />
+                </StackPanel>
+            </Border>
+
+            <!-- 分类管理 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="分类管理" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                        <Button Content="＋ 新建分类" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Right" Command="{Binding OpenCategoryEditorCommand}"
+                                Visibility="{Binding IsProjectCategorySource, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="应用里有两套分类：「项目分类」是你自己整理的，可以随便改；「浏览器分类」是从 Edge 的文件夹结构读出来的，只读。下面选当前用哪一套。" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="项目分类还分「常规」和「隐私」：在隐私模式下建的分类只在隐私模式下出现，常规模式看不到，两边互不干扰。书签被移到另一侧时，它在原来那侧的归属会暂时失效（表现为未分类），移回去就自动恢复。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBlock Text="当前使用" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                   Margin="0,0,10,0" />
+                        <ComboBox Style="{StaticResource DarkComboBox}" Width="140"
+                                  ItemsSource="{Binding CategorySourceOptions}"
+                                  SelectedItem="{Binding CategorySourceLabel, Mode=TwoWay}"
+                                  ToolTip="切换后分类列表、详情页标签、未分类判定、搜索全部跟着变" />
+                    </StackPanel>
+
+                    <!-- 项目分类：可编辑 -->
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,12,0,0" TextWrapping="Wrap"
+                               Text="在左侧网址上点右键，可以在「分类归属」里勾选分类——一个网址可以同时归入多个分类，再点一下就是取消勾选；旁边的「移出全部分类」会一次清空。下面两种自动归类会覆盖现有分类（只留一个），手工调过的慎用。"
+                               Visibility="{Binding IsProjectCategorySource, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- 浏览器分类：只读 -->
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,12,0,0" TextWrapping="Wrap"
+                               Text="浏览器分类来自 Edge 的文件夹结构，只读：不能重命名或删除，点「同步 Edge」会按最新文件夹刷新。"
+                               Visibility="{Binding IsBrowserCategorySource, Converter={StaticResource BoolToVis}}" />
+
+                    <ItemsControl ItemsSource="{Binding Categories}" Margin="0,14,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#16222F" CornerRadius="6" Padding="12,8" Margin="0,0,0,6"
+                                        BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="9" Height="9" CornerRadius="5"
+                                                VerticalAlignment="Center"
+                                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="10,0,10,0"
+                                                   FontSize="12.5" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}">
+                                            <Button Content="重命名" Style="{StaticResource IconButton}" FontSize="11"
+                                                    Click="RenameCategory_Click" />
+                                            <Button Content="删除" Style="{StaticResource IconButton}" FontSize="11"
+                                                    Foreground="#EF5350" Click="DeleteCategory_Click" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="只读" FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource TextMutedBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsEditable}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="还没有分类。点右上角「＋ 新建分类」自己建，或把 Edge 的文件夹结构导入进来。"
+                               Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding Categories.Count, Converter={StaticResource ZeroToVis}}" />
+
+                    <Border Style="{StaticResource Divider}" Margin="0,16,0,12"
+                            Visibility="{Binding IsProjectCategorySource, Converter={StaticResource BoolToVis}}" />
+
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsProjectCategorySource, Converter={StaticResource BoolToVis}}">
+                        <Button Content="导入 Edge 文件夹结构" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Command="{Binding RegroupByFolderCommand}"
+                                ToolTip="把 Edge 的文件夹结构复制成一份可编辑的项目分类" />
+                        <Button Content="按网站类型智能归类" Style="{StaticResource BaseButton}"
+                                Command="{Binding RegroupByTypeCommand}"
+                                ToolTip="需要先做过检测，识别结果才准确" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 主界面 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="主界面" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="决定没选中网址时，右边主区默认显示什么。改完立即生效，不用点保存。点开任意一条收藏后仍然进入网址详情页。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="默认展示" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                   Margin="0,0,10,0" />
+                        <ComboBox Style="{StaticResource DarkComboBox}" Width="240"
+                                  ItemsSource="{Binding HomeViewOptions}"
+                                  SelectedItem="{Binding HomeViewLabel, Mode=TwoWay}"
+                                  ToolTip="决定未选中网址时主区显示的内容" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="「Steam 封面墙」是 2:3 竖版封面大图，适合一眼扫过；没有封面的网址用深色底加大号首字母兜底。在卡片上点右键可以「设置封面图」，图片会复制进数据目录统一管理，不会动你的 Edge 书签。" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="「简洁卡片墙」是图标 + 标题的小卡片，一屏能看更多；「概览页」保留原来的统计数字和最近打开。三种视图都跟着左侧的视图、搜索和筛选走，数据多时先显示前 120 条，底部可以「加载更多」。" />
+                </StackPanel>
+            </Border>
+
+            <!-- 美化 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="美化" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="只改「点开某个网址」之后的详情页外观，改完立即生效，不用点保存。原来的显示效果一直都在，随时可以切回去。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="Hero 图" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                   Margin="0,0,10,0" />
+                        <ComboBox Style="{StaticResource DarkComboBox}" Width="240"
+                                  ItemsSource="{Binding HeroDisplayOptions}"
+                                  SelectedItem="{Binding HeroDisplayLabel, Mode=TwoWay}"
+                                  ToolTip="完整显示时 Hero 区按封面图比例加高，图片可以一直延伸到下方卡片背后" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="「完整显示」＝封面图按原始比例完整铺在页面顶部，不再裁切；图片够高时，下方的卡片会浮在图上。没有封面图的网址仍然用原来的渐变色底。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="卡片材质" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                   Margin="0,0,10,0" />
+                        <ComboBox Style="{StaticResource DarkComboBox}" Width="240"
+                                  ItemsSource="{Binding CardMaterialOptions}"
+                                  SelectedItem="{Binding CardMaterialLabel, Mode=TwoWay}"
+                                  ToolTip="毛玻璃会把背景里的 Hero 图整体模糊，再叠一层半透明面板" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="卡片材质决定详情页下半部分那几张卡片的底色：不透明、半透明、毛玻璃。半透明和毛玻璃要详情页背后有封面图才看得出来。" />
+                </StackPanel>
+            </Border>
+
+            <!-- 快捷键 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="快捷键" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="标着「常用」的四个默认就生效；下面那些默认没绑按键，点「设置」再按下想要的组合键即可，改完立即保存、不用重启。一个组合键只能给一个动作，撞上了会提示换一个。" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="Esc 固定用来关掉最上层的浮层；一层浮层都没开时，按一次清空搜索框，再按一次取消选中。录制按键的时候，Esc 表示取消这次的录制、Delete 表示清空这个动作的绑定。" />
+
+                    <!-- 录制中的提示条 -->
+                    <Border Margin="0,14,0,0" CornerRadius="6" Padding="12,9" Background="#152B3D"
+                            BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                            Visibility="{Binding Shortcuts.IsCapturing, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding Shortcuts.CaptureHint}" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource AccentBrush}" />
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Shortcuts.Rows}" Margin="0,14,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="6" Padding="12,8" Margin="0,0,0,6" BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#16222F" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                                    <Setter Property="Background" Value="#152B3D" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Title}" FontSize="12.5"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <Border Margin="6,0,0,0" Padding="5,1" CornerRadius="3"
+                                                        VerticalAlignment="Center" Background="#22384E"
+                                                        Visibility="{Binding IsCore, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="常用" FontSize="10.5"
+                                                               Foreground="{StaticResource TextMutedBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Detail}" Style="{StaticResource CaptionText}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0"
+                                                       Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding GestureText}" Margin="10,0,10,0"
+                                                   VerticalAlignment="Center" FontSize="12" FontFamily="Consolas"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="设置" Style="{StaticResource IconButton}" FontSize="11"
+                                                    Command="{Binding BeginCaptureCommand}"
+                                                    ToolTip="点一下，再按下要用的组合键" />
+                                            <Button Content="清除" Style="{StaticResource IconButton}" FontSize="11"
+                                                    Margin="2,0,0,0" Command="{Binding ClearCommand}"
+                                                    ToolTip="取消这个动作的按键绑定" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="恢复默认" Style="{StaticResource GhostButton}" HorizontalAlignment="Left"
+                            Margin="0,10,0,0" Command="{Binding Shortcuts.ResetDefaultsCommand}"
+                            ToolTip="清掉所有自定义改键，回到「四个常用键 + 其余留空」" />
+                </StackPanel>
+            </Border>
+
+            <!-- 关于数据 -->
+            <Border Background="#111C27" CornerRadius="10" Padding="22" Margin="0,16,0,0"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="数据与隐私" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="所有数据都存在本机，不会上传任何服务器。分类、标签、备注只保存在本应用内，不会修改你的 Edge 书签。" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="账号密码使用 Windows 凭据加密（DPAPI），绑定当前 Windows 账号；换电脑或重装系统后需要重新录入。" />
+
+                    <Border Style="{StaticResource Divider}" Margin="0,16,0,14" />
+
+                    <TextBlock Text="外部恶意网址库" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="接入 URLhaus 与 OpenPhish 两个公开订阅源（纯文本，无需 API Key），检测网址时会在详情页「安全评估明细」里标出命中结果和来源。黑名单独立保存在 security\blacklist.json，不会上传任何信息。" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="打开网址库" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Command="{Binding OpenBlacklistCommand}" />
+                        <Button Content="更新订阅" Style="{StaticResource GhostButton}"
+                                Command="{Binding BlacklistPanel.RefreshFeedsCommand}"
+                                IsEnabled="{Binding BlacklistPanel.IsIdle}"
+                                ToolTip="从 URLhaus 和 OpenPhish 重新拉取恶意网址库" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,12,0,0">
+                        <TextBlock Text="{Binding BlacklistPanel.SummaryText}" Style="{StaticResource CaptionText}" />
+                        <TextBlock Text="{Binding BlacklistPanel.UpdatedText}" Style="{StaticResource CaptionText}" Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <CheckBox Style="{StaticResource DarkCheckBox}" Margin="0,12,0,0"
+                              Content="启动时自动更新恶意网址库订阅"
+                              IsChecked="{Binding Settings.AutoUpdateBlacklist, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

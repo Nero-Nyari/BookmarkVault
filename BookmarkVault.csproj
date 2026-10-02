@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>BookmarkVault</RootNamespace>
+    <AssemblyName>BookmarkVault</AssemblyName>
+    <AssemblyTitle>BookmarkVault</AssemblyTitle>
+    <Product>BookmarkVault</Product>
+    <Authors>Nero-Nyari</Authors>
+    <Copyright>Copyright (c) 2026 Nero-Nyari</Copyright>
+    <Description>A local-first Edge bookmark manager for Windows. Import, organize, probe and secure your bookmarks — every byte stays on your own machine.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Nero-Nyari/BookmarkVault</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Nero-Nyari/BookmarkVault.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>wpf;dotnet;bookmarks;edge;bookmark-manager;windows;local-first</PackageTags>
+    <ApplicationIcon>tub.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+</Project>

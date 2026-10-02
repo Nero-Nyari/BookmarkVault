@@ -1,0 +1,191 @@
+<UserControl x:Class="BookmarkVault.Views.AccountsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource WindowBgBrush}">
+
+    <UserControl.Resources>
+        <Style x:Key="AccountRow" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Chrome" CornerRadius="6" Margin="0,0,0,6" Padding="12,10"
+                                Background="#16222F" BorderBrush="#22384E" BorderThickness="1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#1B2C3E" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#1E3448" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,18,20,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="账号库" Style="{StaticResource PageTitleText}" />
+                <TextBlock Style="{StaticResource MutedText}" Margin="0,6,0,0"
+                           Text="在这里登记各个网站的账号。密码用 Windows 凭据加密（DPAPI）保存在本机，只有当前 Windows 账号能解密。点开有账号的网站时会自动弹提示。" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <TextBox Style="{StaticResource SearchBox}" Width="190" Margin="0,0,8,0"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                         ToolTip="按域名、站点名或账号筛选" />
+                <Button Content="新增账号" Style="{StaticResource PrimaryButton}"
+                        Click="New_Click" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 列表 -->
+            <Grid Grid.Column="0" Margin="0,0,18,0">
+                <TextBlock Text="{Binding CountText}" Style="{StaticResource CaptionText}"
+                           VerticalAlignment="Top" HorizontalAlignment="Left" Margin="2,0,0,0"
+                           Visibility="{Binding Rows.Count, Converter={StaticResource ZeroToVis}}" />
+                <ListBox ItemsSource="{Binding Rows}"
+                         SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource AccountRow}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8"
+                                        Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}">
+                                    <TextBlock Text="{Binding AvatarText}" FontWeight="Bold" FontSize="14"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SiteName}" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="#E4EEF7" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Username}" Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="🔒" FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Visibility="{Binding HasPassword, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <!-- 编辑 / 详情 -->
+            <Border Grid.Column="1" Background="#111C27" CornerRadius="10"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="22">
+                <Grid>
+                    <!-- 编辑表单 -->
+                    <StackPanel Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding EditorTitle}" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+
+                        <TextBlock Text="域名" Style="{StaticResource CaptionText}" Margin="0,18,0,6" />
+                        <TextBox Style="{StaticResource DarkTextBox}"
+                                 Text="{Binding DraftDomain, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="例如 github.com，可以直接粘贴完整网址" />
+
+                        <TextBlock Text="站点名称" Style="{StaticResource CaptionText}" Margin="0,14,0,6" />
+                        <TextBox Style="{StaticResource DarkTextBox}"
+                                 Text="{Binding DraftSiteName, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Text="账号 / 邮箱" Style="{StaticResource CaptionText}" Margin="0,14,0,6" />
+                        <TextBox Style="{StaticResource DarkTextBox}"
+                                 Text="{Binding DraftUsername, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Text="密码" Style="{StaticResource CaptionText}" Margin="0,14,0,6" />
+                        <PasswordBox x:Name="PasswordInput" Style="{StaticResource DarkPasswordBox}"
+                                     PasswordChanged="Password_Changed"
+                                     ToolTip="留空表示不保存密码，只提示账号" />
+
+                        <TextBlock Text="备注" Style="{StaticResource CaptionText}" Margin="0,14,0,6" />
+                        <TextBox Style="{StaticResource DarkTextBox}" MinHeight="56" AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Text="{Binding DraftNote, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <CheckBox Style="{StaticResource DarkCheckBox}" Margin="0,16,0,0"
+                                  Content="打开该网站时自动弹出账号提示"
+                                  IsChecked="{Binding DraftAutoPrompt, Mode=TwoWay}" />
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                            <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Command="{Binding CancelCommand}" />
+                            <Button Content="保存" Style="{StaticResource PrimaryButton}"
+                                    Click="Save_Click" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 选中项详情 -->
+                    <StackPanel Visibility="{Binding IsEditorOpen, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="账号详情" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                        <StackPanel DataContext="{Binding SelectedRow}" Margin="0,18,0,0">
+                            <TextBlock Text="{Binding SiteName}" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                            <TextBlock Text="{Binding Domain}" Style="{StaticResource CaptionText}" Margin="0,4,0,0" />
+
+                            <Border Style="{StaticResource Divider}" Margin="0,16,0,14" />
+
+                            <TextBlock Text="账号 / 邮箱" Style="{StaticResource CaptionText}" />
+                            <TextBlock Text="{Binding Username}" FontSize="13" Margin="0,4,0,0"
+                                       Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+
+                            <TextBlock Text="密码" Style="{StaticResource CaptionText}" Margin="0,14,0,0" />
+                            <TextBlock Text="{Binding PasswordText}" FontSize="13" Margin="0,4,0,0"
+                                       Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+
+                            <TextBlock Text="备注" Style="{StaticResource CaptionText}" Margin="0,14,0,0" />
+                            <TextBlock Text="{Binding Note}" FontSize="12.5" Margin="0,4,0,0"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+
+                            <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource CaptionText}" Margin="0,16,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0"
+                                    DataContext="{Binding}">
+                            <Button Content="显示 / 隐藏密码" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Click="Reveal_Click" />
+                            <Button Content="复制账号" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Click="CopyUser_Click" />
+                            <Button Content="复制密码" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Click="CopyPass_Click" />
+                            <Button Content="编辑" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                    Click="Edit_Click" />
+                            <Button Content="删除" Style="{StaticResource DangerButton}" Click="Delete_Click" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 空状态 -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding Rows.Count, Converter={StaticResource ZeroToVis}}">
+                        <TextBlock Text="还没有登记任何账号" Style="{StaticResource MutedText}"
+                                   HorizontalAlignment="Center" />
+                        <Button Content="新增第一个账号" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Center" Margin="0,14,0,0" Click="New_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

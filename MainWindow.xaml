@@ -1,0 +1,1502 @@
+<Window x:Class="BookmarkVault.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BookmarkVault.ViewModels"
+        xmlns:views="clr-namespace:BookmarkVault.Views"
+        Title="BookmarkVault" Height="820" Width="1360"
+        MinHeight="620" MinWidth="1080"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBgBrush}"
+        FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewMouseLeftButtonDown="Window_PreviewMouseLeftButtonDown"
+        Deactivated="Window_Deactivated"
+        TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <!-- 详情页内容卡片：底色 / 描边跟着设置页「美化」里的卡片材质走 -->
+        <Style x:Key="ContentCard" TargetType="Border">
+            <Setter Property="Background"
+                    Value="{Binding DataContext.CardFillColor, RelativeSource={RelativeSource AncestorType=Window},
+                                    Converter={StaticResource HexToBrush}}" />
+            <Setter Property="BorderBrush"
+                    Value="{Binding DataContext.CardStrokeColor, RelativeSource={RelativeSource AncestorType=Window},
+                                    Converter={StaticResource HexToBrush}}" />
+        </Style>
+
+        <!-- 网址右键菜单：侧栏列表和封面墙共用同一份 -->
+        <ContextMenu x:Key="CardContextMenu" Style="{StaticResource DarkContextMenu}">
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="打开网站" Click="CardOpen_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="检测这个网站" Click="CardProbe_Click" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="标记为常用 / 取消" Click="CardFavorite_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="复制链接" Click="CardCopy_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="编辑标题 · 备注…" Click="CardEdit_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="用其他浏览器打开" Tag="BrowserMenu" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="分类归属（可勾多个）" Tag="MoveMenu" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="移出全部分类" Click="CardClearCategory_Click" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="移入隐私" Tag="PrivacyIn"
+                      Click="CardPrivacyIn_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="移出隐私" Tag="PrivacyOut"
+                      Click="CardPrivacyOut_Click" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="设置卡片封面…" Click="ImportCardCover_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="设置详情页封面…" Click="ImportCover_Click" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="移除封面图" Click="RemoveCover_Click" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="编辑该站账号" Click="CardEditAccount_Click" />
+            <Separator Background="#24384F" Margin="6,3" />
+            <MenuItem Style="{StaticResource DarkMenuItem}" Header="删除这条收藏" Click="CardDelete_Click" />
+        </ContextMenu>
+
+        <!-- 侧栏网址条目 -->
+        <DataTemplate x:Key="SidebarItemTemplate" DataType="{x:Type vm:BookmarkCardViewModel}">
+            <Grid ContextMenu="{StaticResource CardContextMenu}"
+                  ContextMenuOpening="Card_ContextMenuOpening" ToolTip="{Binding TooltipText}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Width="20" Height="20">
+                    <Border CornerRadius="4"
+                            Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}"
+                            Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="{Binding AvatarText}" FontSize="10" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                    </Border>
+                    <Image Source="{Binding IconUri}" Width="20" Height="20"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Visibility="{Binding HasIcon, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+
+                <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="8,0,6,0"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+
+                <Ellipse Grid.Column="2" Width="6" Height="6" VerticalAlignment="Center"
+                         Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- 概览页的「最近打开」小卡片 -->
+        <DataTemplate x:Key="RecentCardTemplate" DataType="{x:Type vm:BookmarkCardViewModel}">
+            <Button Style="{StaticResource RowButton}" Width="212" Margin="0,0,10,10" Padding="12,10"
+                    Background="#132030" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                    Command="{Binding DataContext.SelectCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}">
+                <StackPanel Width="184">
+                    <StackPanel Orientation="Horizontal">
+                        <Grid Width="20" Height="20">
+                            <Border CornerRadius="4"
+                                    Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}"
+                                    Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVis}}">
+                                <TextBlock Text="{Binding AvatarText}" FontSize="10" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                            </Border>
+                            <Image Source="{Binding IconUri}" Width="20" Height="20"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   Visibility="{Binding HasIcon, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
+                        <TextBlock Text="{Binding Title}" Margin="8,0,0,0" FontSize="12.5"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Domain}" Style="{StaticResource CaptionText}" Margin="0,8,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{Binding LastOpenedText}" Style="{StaticResource CaptionText}" />
+                        <TextBlock Text=" · " Style="{StaticResource CaptionText}" />
+                        <TextBlock Text="{Binding VisitCountText}" Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- Steam 封面墙上的卡片：2:3 竖版封面，名称在封面下方 -->
+        <DataTemplate x:Key="CoverWallTemplate" DataType="{x:Type vm:BookmarkCardViewModel}">
+            <Button Style="{StaticResource CoverCard}" Width="168" Margin="0,0,14,16"
+                    ContextMenu="{StaticResource CardContextMenu}"
+                    ContextMenuOpening="Card_ContextMenuOpening"
+                    ToolTip="{Binding TooltipText}"
+                    Command="{Binding DataContext.SelectCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}">
+                <StackPanel>
+                    <!-- 封面区：有自定义封面就铺满，没有就用深色底 + 首字母 -->
+                    <Border Width="168" Height="252" CornerRadius="6" ClipToBounds="True"
+                            Background="#0E1822" BorderThickness="1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="#24384F" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                 Value="True">
+                                        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Grid>
+                            <TextBlock Text="{Binding AvatarText}" FontSize="60" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                            <Image Source="{Binding CardCoverSource}" Stretch="UniformToFill"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   Visibility="{Binding HasCardCover, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="{Binding Title}" Margin="2,8,2,0" FontSize="12.5"
+                               Foreground="#E4EEF7" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Margin="2,3,2,0">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                 Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                        <TextBlock Text="{Binding Domain}" Style="{StaticResource CaptionText}" Margin="6,0,0,0"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- 卡片墙上的卡片：图标 + 标题 + 状态点 + 域名（简洁版） -->
+        <DataTemplate x:Key="CardWallTemplate" DataType="{x:Type vm:BookmarkCardViewModel}">
+            <Button Style="{StaticResource RowButton}" Width="212" Margin="0,0,12,12" Padding="12,10"
+                    Background="#132030" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                    Command="{Binding DataContext.SelectCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="{Binding TooltipText}">
+                <StackPanel Width="184">
+                    <StackPanel Orientation="Horizontal">
+                        <Grid Width="20" Height="20">
+                            <Border CornerRadius="4"
+                                    Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}"
+                                    Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVis}}">
+                                <TextBlock Text="{Binding AvatarText}" FontSize="10" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                            </Border>
+                            <Image Source="{Binding IconUri}" Width="20" Height="20"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   Visibility="{Binding HasIcon, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
+                        <TextBlock Text="{Binding Title}" Margin="8,0,0,0" FontSize="12.5"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                 Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                        <TextBlock Text="{Binding Domain}" Style="{StaticResource CaptionText}" Margin="6,0,0,0"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- 详情页右栏的「相关收藏推荐」行 -->
+        <DataTemplate x:Key="RelatedRowTemplate" DataType="{x:Type vm:BookmarkCardViewModel}">
+            <Button Style="{StaticResource RowButton}" Margin="0,1"
+                    Command="{Binding DataContext.SelectCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="{Binding TooltipText}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" Width="18" Height="18">
+                        <Border CornerRadius="4"
+                                Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}"
+                                Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVis}}">
+                            <TextBlock Text="{Binding AvatarText}" FontSize="9" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                        </Border>
+                        <Image Source="{Binding IconUri}" Width="18" Height="18"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Visibility="{Binding HasIcon, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="8,0,6,0" FontSize="12.5"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <Ellipse Grid.Column="2" Width="6" Height="6" VerticalAlignment="Center"
+                             Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <!-- 归类看板上的分类文件夹：拖到这里完成归类 -->
+        <DataTemplate x:Key="CategoryFolderTemplate" DataType="{x:Type vm:CategoryFolderViewModel}">
+            <Border Width="168" Height="104" Margin="0,0,12,12" CornerRadius="8"
+                    BorderThickness="1" AllowDrop="True"
+                    DragOver="Folder_DragOver" DragLeave="Folder_DragLeave" Drop="Folder_Drop">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#132030" />
+                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                <Setter Property="Background" Value="#1B3A52" />
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid Margin="12,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="30" Height="30" CornerRadius="6"
+                                Background="{Binding Color, Converter={StaticResource HexToAlphaBrush}}">
+                            <TextBlock Text="{Binding Glyph}" FontSize="15"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="15" FontWeight="Bold"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="252" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== 左侧：快捷入口 + 搜索 + 网址列表 ==================== -->
+        <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Background="{StaticResource SidebarBgBrush}"
+                BorderBrush="#16222E" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="18,20,18,12">
+                    <TextBlock Text="BookmarkVault" FontSize="18" FontWeight="Bold" Foreground="#E4EEF7" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="14,0,14,10">
+                    <Grid x:Name="FilterAnchor">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SidebarSearch" Grid.Column="0" Style="{StaticResource SearchBox}"
+                                 Height="26" Padding="10,0"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                 ToolTip="搜索标题、网址、备注、标签或分类" />
+                        <Button x:Name="FilterButton" Grid.Column="1" Style="{StaticResource IconButton}" Margin="4,0,0,0"
+                                Width="30" Height="26" Padding="0"
+                                AutomationProperties.Name="筛选"
+                                Click="FilterButton_Click" ToolTip="筛选">
+                            <Path Data="M 0 0 L 12 0 L 7 6 L 7 13 L 5 11 L 5 6 Z"
+                                  Width="12" Height="13" Stretch="None">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasActiveFilter}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+                        </Button>
+                    </Grid>
+
+                    <!-- 已有筛选条件或视图不是「全部」时的提示条 -->
+                    <Border Margin="0,8,0,0" CornerRadius="4" Padding="9,4" Background="#152B3D"
+                            BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                            Visibility="{Binding ShowFilterBar, Converter={StaticResource BoolToVis}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding FilterSummaryText}" FontSize="11"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource AccentBrush}" />
+                            <Button Grid.Column="1" Content="清除" Style="{StaticResource IconButton}"
+                                    FontSize="11" Padding="4,2" Margin="6,0,0,0"
+                                    ToolTip="清除全部筛选条件" Command="{Binding ClearFiltersCommand}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- ==================== 视图与筛选浮层 ==================== -->
+                <Popup Grid.Row="1" x:Name="FilterPopup"
+                       PlacementTarget="{Binding ElementName=FilterAnchor}"
+                       Placement="Right" HorizontalOffset="14"
+                       StaysOpen="True" AllowsTransparency="True"
+                       IsOpen="{Binding IsFilterOpen, Mode=TwoWay}"
+                       DataContext="{Binding PlacementTarget.DataContext,
+                                             RelativeSource={RelativeSource Self}}">
+                    <Border Width="440" MaxHeight="460" Background="#14202D" CornerRadius="10"
+                            BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                            Padding="16,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.5" Color="#000000" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="视图与筛选" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="#E4EEF7" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" Style="{StaticResource DarkComboBox}" Width="122"
+                                          Margin="0,0,10,0" VerticalAlignment="Center"
+                                          ItemsSource="{Binding SortModes}"
+                                          SelectedItem="{Binding SortMode, Mode=TwoWay}"
+                                          ToolTip="列表排序方式" />
+                                <Button Grid.Column="2" Content="清除全部" Style="{StaticResource GhostButton}"
+                                        Padding="10,4" FontSize="11.5"
+                                        Command="{Binding ClearFiltersCommand}" />
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <!-- 视图切换：原侧栏的「全部 / 常用 / 待检测 / 打不开」 -->
+                                    <StackPanel Margin="0,0,0,14"
+                                                Visibility="{Binding IsNavVisible, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="视图" Style="{StaticResource CaptionText}" />
+                                        <ItemsControl ItemsSource="{Binding PinnedNav}" Margin="0,7,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource ViewChip}"
+                                                              Content="{Binding Name}"
+                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <ItemsControl ItemsSource="{Binding FilterGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,14">
+                                                    <TextBlock Text="{Binding Title}"
+                                                               Style="{StaticResource CaptionText}" />
+                                                    <ItemsControl ItemsSource="{Binding Options}" Margin="0,7,0,0">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <CheckBox Style="{StaticResource FilterChip}"
+                                                                          Content="{Binding Label}"
+                                                                          IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Popup>
+
+                <Grid Grid.Row="2">
+                    <ListBox Style="{StaticResource NavListBox}"
+                             ItemsSource="{Binding SidebarItems}"
+                             ItemTemplate="{StaticResource SidebarItemTemplate}"
+                             SelectedItem="{Binding SelectedCard}"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             PreviewMouseLeftButtonDown="SidebarList_PreviewMouseLeftButtonDown"
+                             PreviewMouseMove="SidebarList_PreviewMouseMove" />
+                    <TextBlock Margin="18,20,18,0" VerticalAlignment="Top" TextWrapping="Wrap"
+                               Style="{StaticResource CaptionText}"
+                               Text="没有匹配的收藏。换个关键词，或先把 Edge 书签同步进来。"
+                               Visibility="{Binding IsNormalListEmpty, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Margin="18,20,18,0" VerticalAlignment="Top" TextWrapping="Wrap"
+                               Style="{StaticResource CaptionText}"
+                               Text="隐私列表是空的。点「退出隐私」回到常规列表，在网址上点右键选「移入隐私」。"
+                               Visibility="{Binding IsPrivacyListEmpty, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ==================== 顶部工具栏：只放列表级操作 ==================== -->
+        <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource HeaderBgBrush}"
+                BorderBrush="#16222E" BorderThickness="0,0,0,1">
+            <Grid Margin="18,0" Height="60">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="← 返回收藏" Style="{StaticResource GhostButton}"
+                        VerticalAlignment="Center"
+                        Command="{Binding BackToDetailCommand}"
+                        Visibility="{Binding IsAuxView, Converter={StaticResource BoolToVis}}" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 批量操作（同步 Edge / 检测 / 抓图标）已移到设置页「维护工具」，这里只留检测中的取消 -->
+                    <Button Content="取消" Style="{StaticResource DangerButton}"
+                            Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVis}}"
+                            Command="{Binding CancelProbeCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ==================== 主内容 ==================== -->
+        <Grid Grid.Row="1" Grid.Column="1">
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MainView}" Value="Accounts">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MainView}" Value="Settings">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <!-- ========== Steam 封面墙（默认落地视图） ========== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsCoverWall, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="22,20,22,24">
+                        <ItemsControl ItemsSource="{Binding WallCards}"
+                                      ItemTemplate="{StaticResource CoverWallTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <Button Content="加载更多" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Center" Padding="18,7" Margin="0,4,0,0"
+                                Command="{Binding LoadMoreWallCardsCommand}"
+                                Visibility="{Binding HasMoreWallCards, Converter={StaticResource BoolToVis}}" />
+
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="2,20,0,0" TextWrapping="Wrap"
+                                   Text="没有匹配的收藏。换个关键词、调整筛选条件，或先把 Edge 书签同步进来。"
+                                   Visibility="{Binding IsCardWallEmpty, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ========== 书签卡片墙（简洁版） ========== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsCardWall, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="22,20,22,24">
+                        <ItemsControl ItemsSource="{Binding WallCards}"
+                                      ItemTemplate="{StaticResource CardWallTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <Button Content="加载更多" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Center" Padding="18,7" Margin="0,4,0,0"
+                                Command="{Binding LoadMoreWallCardsCommand}"
+                                Visibility="{Binding HasMoreWallCards, Converter={StaticResource BoolToVis}}" />
+
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="2,20,0,0" TextWrapping="Wrap"
+                                   Text="没有匹配的收藏。换个关键词、调整筛选条件，或先把 Edge 书签同步进来。"
+                                   Visibility="{Binding IsCardWallEmpty, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ========== 概览页（没有选中网址时） ========== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsOverview, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="26,22,26,26" MaxWidth="1120" HorizontalAlignment="Left">
+                        <!-- 统计 Hero -->
+                        <Border Height="240" CornerRadius="12" BorderBrush="#2A475E" BorderThickness="1">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#24557A" Offset="0" />
+                                    <GradientStop Color="#14293C" Offset="0.55" />
+                                    <GradientStop Color="#0B1218" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Grid Margin="30,24">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0">
+                                    <TextBlock Text="本地收藏总览" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" />
+                                    <TextBlock Margin="0,7,0,0" FontSize="12.5" Foreground="#A7BDD0"
+                                               Text="从 Edge 读进来的书签都只存在本机，检测结果也可随时重来。" />
+                                </StackPanel>
+
+                                <UniformGrid Grid.Row="1" Columns="3" VerticalAlignment="Bottom" Margin="0,18,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding TotalBookmarks}" FontSize="26" FontWeight="Bold"
+                                                   Foreground="#FFFFFF" />
+                                        <TextBlock Text="收藏总数" Style="{StaticResource CaptionText}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding ProbedCount}" FontSize="26" FontWeight="Bold"
+                                                   Foreground="#FFFFFF" />
+                                        <TextBlock Text="已检测" Style="{StaticResource CaptionText}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding OnlineRateText}" FontSize="26" FontWeight="Bold"
+                                                   Foreground="#8BC34A" />
+                                        <TextBlock Text="可访问占比" Style="{StaticResource CaptionText}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </UniformGrid>
+
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,20,0,0">
+                                    <Button Content="同步 Edge 书签" Style="{StaticResource PrimaryButton}"
+                                            Padding="20,9" Margin="0,0,8,0" Command="{Binding SyncEdgeCommand}" />
+                                    <Button Content="检测全部" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                            Command="{Binding ProbeAllCommand}" />
+                                    <Button Content="抓取图标" Style="{StaticResource GhostButton}"
+                                            Command="{Binding DownloadIconsCommand}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 最近打开 -->
+                        <TextBlock Text="最近打开" FontSize="15" FontWeight="SemiBold" Foreground="#E4EEF7"
+                                   Margin="2,22,0,12" />
+                        <ItemsControl ItemsSource="{Binding RecentCards}"
+                                      ItemTemplate="{StaticResource RecentCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="2,2,0,0"
+                                   Text="还没有打开记录。点开左侧任意一条收藏后，这里会留下最近访问的足迹。"
+                                   Visibility="{Binding RecentCards.Count, Converter={StaticResource ZeroToVis}}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ========== 归类看板（把侧栏的收藏拖到分类文件夹上） ========== -->
+                <Grid Visibility="{Binding IsOrganizeBoard, Converter={StaticResource BoolToVis}}"
+                      Margin="26,22,26,26">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="归类看板" FontSize="20" FontWeight="Bold" Foreground="#E4EEF7" />
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="按住左侧列表里的网址拖到下面的分类文件夹上松手，就把它归入这个分类（原有的分类保留，可以拖进多个）；拖到「未分类」等于把它的分类全部移出。" />
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Margin="0,12,0,0" CornerRadius="6" Padding="12,8" Background="#152B3D"
+                            BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                            Visibility="{Binding ShowCategorySourceHint, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding CategorySourceHint}" FontSize="11.5" TextWrapping="Wrap"
+                                   Foreground="{StaticResource AccentBrush}" />
+                    </Border>
+
+                    <TextBlock Grid.Row="3" VerticalAlignment="Top" Margin="2,12,0,0" TextWrapping="Wrap"
+                               Style="{StaticResource CaptionText}"
+                               Text="还没有项目分类，到设置页的「分类管理」里先建几个，再回来拖。"
+                               Visibility="{Binding HasNoProjectCategory, Converter={StaticResource BoolToVis}}" />
+
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+                        <ItemsControl ItemsSource="{Binding CategoryFolders}"
+                                      ItemTemplate="{StaticResource CategoryFolderTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- ========== 网址详情页 ========== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasSelectedCard, Converter={StaticResource BoolToVis}}">
+                    <Grid DataContext="{Binding SelectedCard}">
+
+                        <!-- 完整显示：页面级背景大图，按原图比例铺满宽度，往下延伸到卡片背后 -->
+                        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                              Visibility="{Binding DataContext.IsFullHero,
+                                            RelativeSource={RelativeSource AncestorType=Window},
+                                            Converter={StaticResource BoolToVis}}">
+                            <!-- 毛玻璃：整图模糊。效果必须放在 Viewbox 外层，否则会干扰 Viewbox 的测量 -->
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.IsFrostedCard,
+                                            RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Effect">
+                                                <Setter.Value>
+                                                    <BlurEffect Radius="34" KernelType="Gaussian" />
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter Property="CacheMode">
+                                                <Setter.Value>
+                                                    <BitmapCache />
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                     RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image Source="{Binding CoverSource}"
+                                       Visibility="{Binding HasCover, Converter={StaticResource BoolToVis}}" />
+                            </Viewbox>
+                        </Grid>
+
+                        <StackPanel>
+
+                        <!-- Hero 图 + 信息浮层 -->
+                        <Grid x:Name="HeroHost" Height="240" ClipToBounds="False">
+                            <!-- 兜底背景：域名主色渐变（完整显示模式下若有封面图则让位给大图） -->
+                            <Border Background="{Binding HeroFallbackBrush}"
+                                    Visibility="{Binding DataContext.ShowHeroFallback,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolToVis}}" />
+                            <!-- 无封面时用放大的 favicon 做模糊底纹 -->
+                            <Image Source="{Binding IconUri}" Stretch="UniformToFill" Opacity="0.5"
+                                   RenderOptions.BitmapScalingMode="LowQuality"
+                                   Visibility="{Binding HasCover, Converter={StaticResource InverseBoolToVis}}">
+                                <Image.Effect>
+                                    <BlurEffect Radius="60" KernelType="Gaussian" />
+                                </Image.Effect>
+                            </Image>
+
+                            <!-- 原样式：240px 内裁剪铺满 + 渐变压暗 -->
+                            <Grid Visibility="{Binding DataContext.IsCroppedHero,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolToVis}}">
+                                <Image Source="{Binding CoverSource}" Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       Visibility="{Binding HasCover, Converter={StaticResource BoolToVis}}" />
+                                <!-- 顶部透明 → 底部压暗 -->
+                                <Border>
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#000B1218" Offset="0" />
+                                            <GradientStop Color="#400B1218" Offset="0.38" />
+                                            <GradientStop Color="#A60B1218" Offset="0.72" />
+                                            <GradientStop Color="#F20B1218" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
+
+                            <!-- 完整显示模式下压暗顶部，保证标题与按钮读得清，到 240px 处刚好隐去 -->
+                            <Border Height="240" VerticalAlignment="Top"
+                                    Visibility="{Binding DataContext.IsFullHero,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolToVis}}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#D90B1218" Offset="0" />
+                                        <GradientStop Color="#990B1218" Offset="0.45" />
+                                        <GradientStop Color="#000B1218" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- 标题与操作按钮浮层 -->
+                            <Grid Margin="26,0,26,18" VerticalAlignment="Bottom">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="6*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Grid Grid.Column="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Width="56" Height="56" CornerRadius="12" Background="#E60B1218"
+                                            BorderBrush="#40FFFFFF" BorderThickness="1" VerticalAlignment="Bottom">
+                                        <Grid>
+                                            <TextBlock Text="{Binding AvatarText}" FontSize="24" FontWeight="Bold"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVis}}"
+                                                       Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
+                                            <Image Source="{Binding IconUri}" Width="34" Height="34"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding HasIcon, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Bottom">
+                                        <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="Bold"
+                                                   Foreground="#FFFFFF" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Domain}" FontSize="12.5" Foreground="#A7BDD0"
+                                                   Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                            <!-- 分类标签：一个网址可能有多个，并排显示 -->
+                                            <ItemsControl ItemsSource="{Binding Categories}" VerticalAlignment="Center"
+                                                          Visibility="{Binding HasCategory, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border CornerRadius="3" Padding="7,3" Margin="0,0,6,0"
+                                                                Background="{Binding Color, Converter={StaticResource HexToAlphaBrush}}">
+                                                            <TextBlock Text="{Binding Name}" FontSize="11"
+                                                                       Foreground="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Border CornerRadius="3" Padding="7,3"
+                                                    Background="{Binding CategoryColor, Converter={StaticResource HexToAlphaBrush}}"
+                                                    Visibility="{Binding HasCategory, Converter={StaticResource InverseBoolToVis}}">
+                                                <TextBlock Text="未分类" FontSize="11"
+                                                           Foreground="{Binding CategoryColor, Converter={StaticResource HexToBrush}}" />
+                                            </Border>
+                                            <Border CornerRadius="3" Padding="7,3" Margin="8,0,0,0"
+                                                    Background="#261B2A3A" BorderBrush="#332E4459" BorderThickness="1">
+                                                <TextBlock Text="{Binding TypeText}" FontSize="11"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                         Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                                                <TextBlock Text="{Binding StateText}" FontSize="11" Margin="5,0,0,0"
+                                                           Foreground="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+
+                                <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                                           VerticalAlignment="Bottom" Margin="16,0,0,0">
+                                    <Button Content="打开网站" Style="{StaticResource PrimaryButton}" Padding="22,9"
+                                            Margin="0,4,8,0" ToolTip="用系统默认浏览器打开，并累计访问次数"
+                                            Command="{Binding DataContext.OpenCommand,
+                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="检测此站" Style="{StaticResource GhostButton}" Margin="0,4,8,0"
+                                            Command="{Binding DataContext.ProbeOneCommand,
+                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="该站账号" Style="{StaticResource GhostButton}" Margin="0,4,8,0"
+                                            Command="{Binding DataContext.EditAccountCommand,
+                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="复制链接" Style="{StaticResource GhostButton}" Margin="0,4,8,0"
+                                            Command="{Binding DataContext.CopyUrlCommand,
+                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="{Binding FavoriteButtonText}" Style="{StaticResource GhostButton}"
+                                            Margin="0,4,8,0"
+                                            Command="{Binding DataContext.ToggleFavoriteCommand,
+                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="编辑标题 · 备注" Style="{StaticResource GhostButton}" Margin="0,4,8,0"
+                                            ToolTip="改标题和备注，只影响本应用里的显示"
+                                            Click="CardEdit_Click" />
+                                    <Button Content="换封面" Style="{StaticResource GhostButton}" Margin="0,4,6,0"
+                                            ToolTip="导入本地图片作为封面，会复制进数据目录"
+                                            Click="ImportCover_Click" />
+                                    <Button Content="✕" Style="{StaticResource IconButton}" Margin="0,4,0,0"
+                                            ToolTip="移除封面图" Click="RemoveCover_Click"
+                                            Visibility="{Binding HasCover, Converter={StaticResource BoolToVis}}" />
+                                </WrapPanel>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 三等分信息列：添加时间 / 最近打开 / 访问次数 -->
+                        <Border Margin="26,16,26,0" CornerRadius="10" Padding="4"
+                                Style="{StaticResource ContentCard}" BorderThickness="1">
+                            <UniformGrid Columns="3">
+                                <StackPanel Margin="18,14">
+                                    <TextBlock Text="添加时间" Style="{StaticResource CaptionText}" />
+                                    <TextBlock Text="{Binding AddedText}" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="#E4EEF7" Margin="0,7,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="18,14">
+                                    <TextBlock Text="最近打开" Style="{StaticResource CaptionText}" />
+                                    <TextBlock Text="{Binding LastOpenedText}" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="#E4EEF7" Margin="0,7,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="18,14">
+                                    <TextBlock Text="访问次数" Style="{StaticResource CaptionText}" />
+                                    <TextBlock Text="{Binding VisitCountText}" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="#E4EEF7" Margin="0,7,0,0" />
+                                </StackPanel>
+                            </UniformGrid>
+                        </Border>
+
+                        <!-- 详情双栏：左 6 右 4 -->
+                        <Grid Margin="26,16,26,26">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="6*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="4*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 左栏 -->
+                            <StackPanel Grid.Column="0">
+                                <Border CornerRadius="10" Padding="20"
+                                        Style="{StaticResource ContentCard}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="网址" Style="{StaticResource CaptionText}" />
+                                        <TextBox Text="{Binding Url, Mode=OneWay}" Style="{StaticResource DarkTextBox}"
+                                                 IsReadOnly="True" Margin="0,7,0,0" TextWrapping="Wrap" />
+
+                                        <TextBlock Text="备注" Style="{StaticResource CaptionText}" Margin="0,16,0,0" />
+                                        <TextBlock Text="{Binding NoteText}" FontSize="12.5" Margin="0,7,0,0"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
+                                                   MinHeight="18" />
+
+                                        <TextBlock Text="来源文件夹" Style="{StaticResource CaptionText}" Margin="0,16,0,0" />
+                                        <TextBlock Text="{Binding Model.SourceFolder}" FontSize="12.5" Margin="0,7,0,0"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border CornerRadius="10" Padding="20" Margin="0,14,0,0"
+                                        Style="{StaticResource ContentCard}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="网站状态" FontSize="14" FontWeight="SemiBold" Foreground="#E4EEF7" />
+
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                                <TextBlock Text="可访问性" Style="{StaticResource CaptionText}" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                             Fill="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                                                    <TextBlock Text="{Binding StateText}" FontSize="12.5" Margin="6,0,0,0"
+                                                               Foreground="{Binding StateColor, Converter={StaticResource HexToBrush}}" />
+                                                    <TextBlock Text="{Binding ElapsedText}" Style="{StaticResource CaptionText}"
+                                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                                <TextBlock Text="网站类型" Style="{StaticResource CaptionText}" />
+                                                <TextBlock Text="{Binding TypeText}" FontSize="12.5" Margin="0,6,0,0"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                                <TextBlock Text="响应状态码" Style="{StaticResource CaptionText}" />
+                                                <TextBlock Text="{Binding HttpStatusText}" FontSize="12.5" Margin="0,6,0,0"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                                <TextBlock Text="最近检测" Style="{StaticResource CaptionText}" />
+                                                <TextBlock Text="{Binding CheckedText}" FontSize="12.5" Margin="0,6,0,0"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- 右栏：社交 / 成就类小组件 -->
+                            <StackPanel Grid.Column="2">
+                                <!-- 该站账号 -->
+                                <Border CornerRadius="10" Padding="16"
+                                        Style="{StaticResource ContentCard}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="该站账号" FontSize="13" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                                        <ItemsControl ItemsSource="{Binding DataContext.SelectedAccounts,
+                                                        RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      Margin="0,10,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border CornerRadius="6" Padding="10" Margin="0,0,0,7"
+                                                            Background="{Binding DataContext.CardInnerFillColor,
+                                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                                Converter={StaticResource HexToBrush}}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding SiteName}" FontSize="12"
+                                                                       FontWeight="SemiBold" Foreground="#E4EEF7"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Username}" FontSize="12" Margin="0,6,0,0"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <Grid Margin="0,6,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding PasswordText}"
+                                                                           FontSize="12" VerticalAlignment="Center"
+                                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                                    <Button Content="显示" Style="{StaticResource IconButton}"
+                                                                            FontSize="11"
+                                                                            Command="{Binding DataContext.PromptToggleRevealCommand,
+                                                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                    <Button Content="复制" Style="{StaticResource IconButton}"
+                                                                            FontSize="11"
+                                                                            Command="{Binding DataContext.PromptCopyCommand,
+                                                                                RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                   Text="这一站还没有保存账号。"
+                                                   Visibility="{Binding DataContext.HasSelectedAccounts,
+                                                       RelativeSource={RelativeSource AncestorType=Window},
+                                                       Converter={StaticResource InverseBoolToVis}}" />
+                                        <Button Content="编辑该站账号" Style="{StaticResource GhostButton}"
+                                                HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                Command="{Binding DataContext.EditAccountCommand,
+                                                    RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 安全评估明细 -->
+                                <Border CornerRadius="10" Padding="16" Margin="0,14,0,0"
+                                        Style="{StaticResource ContentCard}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="安全评估明细" FontSize="13" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                                        <TextBlock Text="{Binding SecurityText}" FontSize="20" FontWeight="Bold"
+                                                   Margin="0,10,0,0"
+                                                   Foreground="{Binding SecurityColor, Converter={StaticResource HexToBrush}}" />
+
+                                        <ItemsControl ItemsSource="{Binding Probe.SecurityFlags}" Margin="0,8,0,0"
+                                                      Visibility="{Binding HasSecurityFlags, Converter={StaticResource BoolToVis}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" Style="{StaticResource CaptionText}"
+                                                               TextWrapping="Wrap" Margin="0,0,0,4" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Border Style="{StaticResource Divider}" Margin="0,12,0,10" />
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="86" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="传输协议"
+                                                       Style="{StaticResource CaptionText}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HttpsText}" FontSize="12"
+                                                       Margin="0,0,0,6"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="证书"
+                                                       Style="{StaticResource CaptionText}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CertText}" FontSize="12"
+                                                       Margin="0,0,0,6"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Grid>
+                                        <Grid Margin="0,2,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="86" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="服务器" Style="{StaticResource CaptionText}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding ServerText}" FontSize="12"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 相关收藏推荐 -->
+                                <Border CornerRadius="10" Padding="16" Margin="0,14,0,0"
+                                        Style="{StaticResource ContentCard}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="相关收藏推荐" FontSize="13" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
+                                                   Text="同域名优先，再补同分类" />
+                                        <ItemsControl Margin="0,8,0,0"
+                                                      ItemsSource="{Binding DataContext.RelatedCards,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      ItemTemplate="{StaticResource RelatedRowTemplate}" />
+                                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="这条收藏暂时没有可以一起推荐的邻居。"
+                                                   Visibility="{Binding DataContext.HasRelatedCards,
+                                                       RelativeSource={RelativeSource AncestorType=Window},
+                                                       Converter={StaticResource InverseBoolToVis}}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- 账号库 -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MainView}" Value="Accounts">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <views:AccountsView DataContext="{Binding AccountsPanel}" />
+            </Grid>
+
+            <!-- 恶意网址库（黑名单） -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MainView}" Value="Blacklist">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <views:BlacklistView x:Name="BlacklistHost" DataContext="{Binding BlacklistPanel}" />
+            </Grid>
+
+            <!-- 设置 -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MainView}" Value="Settings">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <views:SettingsView />
+            </Grid>
+        </Grid>
+
+        <!-- ==================== 底部全局状态栏 ==================== -->
+        <Border Grid.Row="2" Grid.Column="1" Background="#0D1620" BorderBrush="#16222E" BorderThickness="0,1,0,0">
+            <Grid Margin="18,0" Height="34">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" Style="{StaticResource MutedText}"
+                               Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" MaxWidth="620" />
+                    <ProgressBar Width="150" Height="3" Margin="14,0,0,0" BorderThickness="0"
+                                 Background="#1B2A3A" Foreground="{StaticResource AccentBrush}"
+                                 VerticalAlignment="Center"
+                                 Minimum="0" Maximum="{Binding ProgressMax}" Value="{Binding ProgressValue}"
+                                 Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="{Binding HomeViewButtonText}" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="{Binding HomeViewButtonTooltip}" Command="{Binding CycleHomeViewCommand}" />
+                    <Button Content="＋ 添加网址" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="手动添加网址，可以一次粘贴多条" Command="{Binding OpenAddBookmarkCommand}" />
+                    <Button Content="🔑 账号库" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="管理保存的网站登录账号" Command="{Binding OpenAccountsCommand}" />
+                    <Button Content="🛡 网址库" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="管理外部恶意网址库黑名单（URLhaus / OpenPhish）" Command="{Binding OpenBlacklistCommand}" />
+                    <Button Content="⚙ 设置" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="检测超时、缓存时长、分类管理" Command="{Binding OpenSettingsCommand}" />
+                    <Button Content="📁 数据目录" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="打开本地数据目录" Command="{Binding OpenDataFolderCommand}" />
+                    <Button Content="{Binding PrivacyButtonText}" Style="{StaticResource IconButton}" FontSize="12"
+                            ToolTip="{Binding PrivacyButtonTooltip}" Command="{Binding TogglePrivacyCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ==================== 账号提示弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsPromptOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="470" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="这个网站有保存的账号" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Text="{Binding PromptCard.Title}" Style="{StaticResource MutedText}"
+                               Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding PromptCard.Domain}" Style="{StaticResource CaptionText}" Margin="0,3,0,0" />
+
+                    <ItemsControl ItemsSource="{Binding PromptAccounts}" Margin="0,14,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#1B2838" CornerRadius="7" Padding="13" Margin="0,0,0,8"
+                                        BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding SiteName}" FontSize="12.5"
+                                                       FontWeight="SemiBold" Foreground="#E4EEF7"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{Binding UpdatedText}"
+                                                       Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Margin="0,9,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="44" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="账号" Style="{StaticResource CaptionText}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Username}" FontSize="12.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="44" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="密码" Style="{StaticResource CaptionText}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding PasswordText}" FontSize="12.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                <Button Content="显示" Style="{StaticResource IconButton}" FontSize="11"
+                                                        Command="{Binding DataContext.PromptToggleRevealCommand,
+                                                            RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="复制" Style="{StaticResource IconButton}" FontSize="11"
+                                                        Command="{Binding DataContext.PromptCopyCommand,
+                                                            RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Note}" Style="{StaticResource CaptionText}"
+                                                   Margin="0,7,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Content="去编辑账号" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding PromptEditAccountCommand}" />
+                        <Button Content="直接打开" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Command="{Binding ConfirmPromptOpenCommand}" />
+                        <Button Content="关闭" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ClosePromptCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 卡片封面来源选择 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsCoverSourcePickerOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="420" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="设置卡片封面" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Text="{Binding CoverPickerTitle}" Style="{StaticResource CaptionText}"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="下一步会打开裁剪页面，按 2:3 裁出卡片封面。详情页封面本身不会被改动。" />
+
+                    <Button Content="使用详细页封面" Style="{StaticResource BaseButton}" Margin="0,16,0,0"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{Binding CoverPickerHasDetailCover}"
+                            Command="{Binding UseDetailCoverForCardCommand}" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="2,5,0,0" TextWrapping="Wrap"
+                               Text="该网址还没有详情页封面，请选择新图片。"
+                               Visibility="{Binding CoverPickerHasDetailCover, Converter={StaticResource InverseBoolToVis}}" />
+
+                    <Button Content="选择新图片…" Style="{StaticResource GhostButton}" Margin="0,10,0,0"
+                            HorizontalAlignment="Stretch" Click="PickNewCardCover_Click" />
+                    <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,14,0,0"
+                            HorizontalAlignment="Right"
+                            Command="{Binding CancelCoverPickerCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 卡片封面裁剪 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsCoverCropOpen, Converter={StaticResource BoolToVis}}">
+            <Border Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="裁剪卡片封面" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="拖动图片调整位置，滚轮缩放。框内区域就是卡片封面（2:3）。" />
+
+                    <!-- 取景框固定 2:3，图片在内部拖动缩放，超出的部分被裁掉 -->
+                    <Grid Width="300" Height="450" Margin="0,14,0,0">
+                        <Border CornerRadius="6" Background="#0B141C" ClipToBounds="True">
+                            <Canvas Width="300" Height="450" Background="Transparent" Cursor="SizeAll"
+                                    MouseLeftButtonDown="CropCanvas_MouseLeftButtonDown"
+                                    MouseMove="CropCanvas_MouseMove"
+                                    MouseLeftButtonUp="CropCanvas_MouseLeftButtonUp"
+                                    MouseWheel="CropCanvas_MouseWheel">
+                                <Image Source="{Binding CropSourceImage}" Stretch="Fill"
+                                       Canvas.Left="{Binding CropLeft}"
+                                       Canvas.Top="{Binding CropTop}"
+                                       Width="{Binding CropDisplayWidth}"
+                                       Height="{Binding CropDisplayHeight}"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Canvas>
+                        </Border>
+                        <Border CornerRadius="6" IsHitTestVisible="False"
+                                BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding CancelCoverCropCommand}" />
+                        <Button Content="确定" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmCoverCropCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 分类编辑弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsCategoryEditorOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="380" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{Binding CategoryEditorTitle}" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Text="分类名" Style="{StaticResource CaptionText}" Margin="0,16,0,6" />
+                    <TextBox Style="{StaticResource DarkTextBox}" Text="{Binding CategoryDraftName,
+                        UpdateSourceTrigger=PropertyChanged}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding CancelCategoryEditorCommand}" />
+                        <Button Content="确定" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmCategoryEditorCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 添加网址弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsAddBookmarkOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="540" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="添加网址" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="手动加的网址留在本地，同步 Edge 不会把它删掉；同一条网址以后也出现在 Edge 里时会被认领成一条，不会重复。" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,14,0,6"
+                               Text="网址（一行一个，可以一次粘贴多条）" />
+                    <TextBox Style="{StaticResource DarkTextArea}" Height="96"
+                             Text="{Binding AddBookmarkUrl, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource CaptionText}" Text="标题（留空取域名）" />
+                            <TextBox Style="{StaticResource DarkTextBox}" Margin="0,6,0,0"
+                                     Text="{Binding AddBookmarkTitle, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource CaptionText}" Text="备注（可选）" />
+                            <TextBox Style="{StaticResource DarkTextBox}" Margin="0,6,0,0"
+                                     Text="{Binding AddBookmarkNote, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="标题和备注只在一次添加一条时生效；批量粘贴时逐条按域名取标题。" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,14,0,6" Text="归入分类（可多选）" />
+                    <ItemsControl ItemsSource="{Binding AddBookmarkCategories}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Style="{StaticResource FilterChip}" Content="{Binding Name}"
+                                          IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                               Text="这一侧还没有项目分类，添加后可以在右键菜单里归类。"
+                               Visibility="{Binding HasAddBookmarkCategories, Converter={StaticResource InverseBoolToVis}}" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,12,0,0" TextWrapping="Wrap"
+                               Text="{Binding AddBookmarkScopeText}" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Foreground="#FF8A65" Text="{Binding AddBookmarkError}"
+                               Visibility="{Binding HasAddBookmarkError, Converter={StaticResource BoolToVis}}" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding CancelAddBookmarkCommand}" />
+                        <Button Content="添加" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmAddBookmarkCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 编辑标题 / 备注弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsEditBookmarkOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="460" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="编辑标题 · 备注" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="{Binding EditBookmarkUrl}" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,14,0,6" Text="标题（清空则显示网址）" />
+                    <TextBox Style="{StaticResource DarkTextBox}"
+                             Text="{Binding EditBookmarkTitle, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,14,0,6" Text="备注" />
+                    <TextBox Style="{StaticResource DarkTextArea}" Height="86"
+                             Text="{Binding EditBookmarkNote, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Text="只改本应用里的显示，不会写回 Edge 书签。" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding CancelBookmarkEditCommand}" />
+                        <Button Content="保存" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmBookmarkEditCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 确认弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsConfirmOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="420" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{Binding ConfirmTitle}" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ConfirmBody}" Style="{StaticResource MutedText}" Margin="0,10,0,0"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding ConfirmCancelCommand}" />
+                        <Button Content="{Binding ConfirmOkText}" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmOkCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 消息弹层 ==================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.ColumnSpan="2" Background="#B3000000"
+              Visibility="{Binding IsMessageOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="420" Background="#14202D" CornerRadius="10"
+                    BorderBrush="{StaticResource AccentDimBrush}" BorderThickness="1"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{Binding MessageTitle}" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Text="{Binding MessageBody}" Style="{StaticResource MutedText}" Margin="0,10,0,0"
+                               TextWrapping="Wrap" />
+                    <Button Content="知道了" Style="{StaticResource PrimaryButton}"
+                            HorizontalAlignment="Right" Margin="0,18,0,0"
+                            Command="{Binding CloseMessageCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

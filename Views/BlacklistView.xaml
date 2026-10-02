@@ -1,0 +1,214 @@
+<UserControl x:Class="BookmarkVault.Views.BlacklistView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource WindowBgBrush}">
+
+    <UserControl.Resources>
+        <Style x:Key="BlacklistRow" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Chrome" CornerRadius="6" Margin="0,0,0,6" Padding="12,9"
+                                Background="#16222F" BorderBrush="#22384E" BorderThickness="1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#1B2C3E" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#1E3448" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,18,20,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 标题 + 订阅操作 -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="恶意网址库（黑名单）" Style="{StaticResource PageTitleText}" />
+                <TextBlock Style="{StaticResource MutedText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="620"
+                           Text="接入 URLhaus 与 OpenPhish 两个公开订阅源，检测网址时会在「安全评估明细」里标出命中结果。数据全部保存在本机 security\blacklist.json，不会上传任何信息。" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="＋ 新增条目" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                        Click="New_Click"
+                        ToolTip="手工添加一个域名、完整网址或通配规则" />
+                <Button Content="更新订阅" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                        Command="{Binding RefreshFeedsCommand}" IsEnabled="{Binding IsIdle}"
+                        ToolTip="从 URLhaus 和 OpenPhish 重新拉取恶意网址库" />
+                <Button Content="清空忽略名单" Style="{StaticResource GhostButton}"
+                        Command="{Binding ClearIgnoredCommand}"
+                        ToolTip="被删掉的订阅条目都记在忽略名单里，清空后下次更新订阅会重新拉回来" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 筛选 + 统计 -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="PageSearch" Grid.Column="0" Style="{StaticResource SearchBox}" Width="220"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                     ToolTip="按表达式或备注筛选" />
+
+            <ComboBox Grid.Column="1" Style="{StaticResource DarkComboBox}" Width="140" Margin="10,0,0,0"
+                      HorizontalAlignment="Left"
+                      ItemsSource="{Binding SourceOptions}"
+                      SelectedItem="{Binding SourceFilter, Mode=TwoWay}"
+                      ToolTip="只看某个来源的条目" />
+
+            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding CountText}" Style="{StaticResource CaptionText}"
+                           HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource CaptionText}"
+                           HorizontalAlignment="Right" Margin="0,3,0,0" />
+                <TextBlock Text="{Binding IgnoredText}" Style="{StaticResource CaptionText}"
+                           HorizontalAlignment="Right" Margin="0,3,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="420" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 列表 -->
+            <Grid Grid.Column="0" Margin="0,0,18,0">
+                <ListBox ItemsSource="{Binding Rows}"
+                         SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource BlacklistRow}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="4" Padding="6,2" VerticalAlignment="Top"
+                                        Margin="0,1,8,0"
+                                        Background="{Binding SourceColor, Converter={StaticResource HexToAlphaBrush}}">
+                                    <TextBlock Text="{Binding SourceName}" FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{Binding SourceColor, Converter={StaticResource HexToBrush}}" />
+                                </Border>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Pattern}" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="#E4EEF7" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Note}" Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding HasNote, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="{Binding Rows.Count, Converter={StaticResource ZeroToVis}}">
+                    <TextBlock Text="没有匹配的黑名单条目" Style="{StaticResource MutedText}"
+                               HorizontalAlignment="Center" />
+                    <Button Content="更新订阅" Style="{StaticResource GhostButton}"
+                            HorizontalAlignment="Center" Margin="0,12,0,0"
+                            Command="{Binding RefreshFeedsCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 详情 / 编辑 -->
+            <Border Grid.Column="1" Background="#111C27" CornerRadius="10"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="22">
+                <Grid>
+                    <!-- 编辑表单 -->
+                    <StackPanel Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding EditorTitle}" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+
+                        <TextBlock Text="匹配表达式" Style="{StaticResource CaptionText}" Margin="0,18,0,6" />
+                        <TextBox Style="{StaticResource DarkTextBox}"
+                                 Text="{Binding DraftPattern, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsPatternEditable}"
+                                 ToolTip="支持 example.com、https://example.com/bad、*.example.com" />
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="三种写法：example.com 命中该域名及子域；https://example.com/bad 只命中这个地址（含子路径）；*.example.com 只命中子域。" />
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding IsPatternEditable, Converter={StaticResource InverseBoolToVis}}"
+                                   Text="订阅条目的表达式来自数据源，不能改；要单独备注可以填下面的备注。" />
+
+                        <TextBlock Text="备注" Style="{StaticResource CaptionText}" Margin="0,14,0,6" />
+                        <TextBox Style="{StaticResource DarkTextArea}" MinHeight="56" AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Text="{Binding DraftNote, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="可选，会一并显示在安全评估明细里" />
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                            <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Command="{Binding CancelCommand}" />
+                            <Button Content="保存" Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding SaveCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 选中项详情 -->
+                    <StackPanel Visibility="{Binding IsEditorOpen, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="条目详情" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                        <StackPanel DataContext="{Binding SelectedRow}" Margin="0,18,0,0">
+                            <TextBlock Text="{Binding Pattern}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="#E4EEF7" TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Border CornerRadius="4" Padding="6,2"
+                                        Background="{Binding SourceColor, Converter={StaticResource HexToAlphaBrush}}">
+                                    <TextBlock Text="{Binding SourceName}" FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{Binding SourceColor, Converter={StaticResource HexToBrush}}" />
+                                </Border>
+                                <TextBlock Text="{Binding OriginText}" Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+
+                            <Border Style="{StaticResource Divider}" Margin="0,16,0,14" />
+
+                            <TextBlock Text="备注" Style="{StaticResource CaptionText}" />
+                            <TextBlock Text="{Binding Note}" FontSize="12.5" Margin="0,4,0,0"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+
+                            <TextBlock Text="{Binding AddedText}" Style="{StaticResource CaptionText}" Margin="0,16,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0" DataContext="{Binding}">
+                            <Button Content="编辑" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                    Command="{Binding EditCommand}" CommandParameter="{Binding SelectedRow}" />
+                            <Button Content="删除" Style="{StaticResource DangerButton}"
+                                    Click="Delete_Click" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 空状态 -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding Rows.Count, Converter={StaticResource ZeroToVis}}">
+                        <TextBlock Text="左边选一条查看详情，或新增一条自定义规则" Style="{StaticResource MutedText}"
+                                   HorizontalAlignment="Center" />
+                        <Button Content="新增条目" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Center" Margin="0,14,0,0" Click="New_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
