@@ -27,10 +27,38 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 列表行首的小复选框：只有方块没有文字，比 DarkCheckBox 紧凑 -->
+        <Style x:Key="RowCheckBox" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Box" Width="15" Height="15" CornerRadius="3"
+                                Background="#101B26" BorderBrush="#3A566E" BorderThickness="1">
+                            <Path x:Name="Tick" Data="M 1.5 5 L 5 8.5 L 10.5 2.5" Stroke="#0B1218" StrokeThickness="2"
+                                  Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="20,18,20,18">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -45,12 +73,29 @@
                 <TextBox Style="{StaticResource SearchBox}" Width="190" Margin="0,0,8,0"
                          Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                          ToolTip="按域名、站点名或账号筛选" />
+                <Button Content="导出表格" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                        IsEnabled="{Binding CanExport}"
+                        ToolTip="勾选的账号导出成表格；一条都没勾就导出全部"
+                        Click="Export_Click" />
                 <Button Content="新增账号" Style="{StaticResource PrimaryButton}"
                         Click="New_Click" />
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <!-- 勾选工具条：作用于当前列表，搜索后就是「所见即所选」 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10"
+                    Visibility="{Binding HasRows, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding SelectionText}" Style="{StaticResource CaptionText}"
+                       VerticalAlignment="Center" Margin="2,0,10,0" />
+            <Button Content="全选 / 全不选" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                    Command="{Binding ToggleSelectAllCommand}" />
+            <Button Content="不选" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                    Command="{Binding SelectNoneCommand}" />
+            <Button Content="反选" Style="{StaticResource GhostButton}"
+                    Command="{Binding InvertSelectionCommand}" />
+        </StackPanel>
+
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="360" />
                 <ColumnDefinition Width="*" />
@@ -71,22 +116,27 @@
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8"
+                                <!-- 勾它只是把这条加进导出范围，不会改变右侧详情看的是哪条 -->
+                                <CheckBox Grid.Column="0" Style="{StaticResource RowCheckBox}" Margin="0,0,10,0"
+                                          IsChecked="{Binding IsExportSelected, Mode=TwoWay}"
+                                          ToolTip="勾选后随「导出表格」一起导出" />
+                                <Border Grid.Column="1" Width="34" Height="34" CornerRadius="8"
                                         Background="{Binding AvatarColor, Converter={StaticResource HexToAlphaBrush}}">
                                     <TextBlock Text="{Binding AvatarText}" FontWeight="Bold" FontSize="14"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{Binding AvatarColor, Converter={StaticResource HexToBrush}}" />
                                 </Border>
-                                <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="2" Margin="10,0,8,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding SiteName}" FontSize="12.5" FontWeight="SemiBold"
                                                Foreground="#E4EEF7" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Username}" Style="{StaticResource CaptionText}"
                                                Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" Text="🔒" FontSize="11" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="3" Text="🔒" FontSize="11" VerticalAlignment="Center"
                                            Foreground="{StaticResource TextMutedBrush}"
                                            Visibility="{Binding HasPassword, Converter={StaticResource BoolToVis}}" />
                             </Grid>
@@ -187,5 +237,39 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- 导出弹层：选格式 + 决定要不要带明文密码 -->
+        <Border Grid.RowSpan="3" Background="#B30B1218"
+                Visibility="{Binding IsExportOpen, Converter={StaticResource BoolToVis}}">
+            <Border Background="#152230" CornerRadius="10" Width="460" Padding="24"
+                    BorderBrush="#24384F" BorderThickness="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="导出为表格" FontSize="16" FontWeight="SemiBold" Foreground="#E4EEF7" />
+                    <TextBlock Text="{Binding ExportScopeText}" Style="{StaticResource MutedText}"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                    <CheckBox Style="{StaticResource DarkCheckBox}" Margin="0,18,0,0"
+                              Content="包含明文密码"
+                              IsChecked="{Binding ExportIncludePassword, Mode=TwoWay}" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="11.5" Foreground="#FF8A65"
+                               Visibility="{Binding ExportIncludePassword, Converter={StaticResource BoolToVis}}"
+                               Text="导出的表格是明文，DPAPI 加密将失效。请勿把文件放到共享目录或随手上传。" />
+
+                    <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Text="CSV 里以 = + - @ 开头的字段会自动加一个 ' 前缀，避免被 Excel 当公式执行；需要原样字符请用 Excel 格式。" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Command="{Binding CancelExportCommand}" />
+                        <Button Content="导出为 CSV" Style="{StaticResource BaseButton}" Margin="0,0,8,0"
+                                Click="ExportCsv_Click" />
+                        <Button Content="导出为 Excel" Style="{StaticResource PrimaryButton}"
+                                Click="ExportXlsx_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </UserControl>

@@ -50,6 +50,8 @@
 
 - 集中管理各站点的账号
 - 密码使用 Windows DPAPI 加密（绑定当前 Windows 账号），打开网站时可选弹出提示
+- 一键导出为表格：行首勾选要导出的账号（支持全选 / 全不选 / 反选），导出 **CSV 或 Excel（`.xlsx`）**；一条都没勾就导出全部
+- 「包含明文密码」是可选开关，默认关闭；开启后会在导出前提示 DPAPI 加密将失效
 
 ---
 
@@ -117,7 +119,7 @@ BookmarkVault/
 ├── AssemblyInfo.cs         程序集信息
 ├── Converters/             值转换器
 ├── Models/                 数据模型（书签、分类、账号、黑名单、设置）
-├── Services/               Edge 读取、HTTP 探测、安全评估、黑名单、封面、图标、本地存储
+├── Services/               Edge 读取、HTTP 探测、安全评估、黑名单、封面、图标、账号导出、本地存储
 ├── Themes/                 Steam 暗色主题资源
 ├── ViewModels/             MVVM 视图模型
 ├── Views/                  独立页面（账号库、网址库、设置）

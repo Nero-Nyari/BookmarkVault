@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using BookmarkVault.Services;
 using BookmarkVault.ViewModels;
 
 namespace BookmarkVault.Views;
@@ -60,5 +61,35 @@ public partial class AccountsView : UserControl
         var answer = MessageBox.Show($"确定要删除 {row.Domain} 的账号记录吗？此操作不可撤销。",
             "BookmarkVault", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (answer == MessageBoxResult.OK) _panel!.DeleteCommand.Execute(row);
+    }
+
+    // ---------- 导出表格 ----------
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+        => _panel?.OpenExportCommand.Execute(null);
+
+    private void ExportXlsx_Click(object sender, RoutedEventArgs e)
+        => RunExport(AccountExportFormat.Xlsx, "Excel 工作簿 (*.xlsx)|*.xlsx", AccountExporter.XlsxExtension);
+
+    private void ExportCsv_Click(object sender, RoutedEventArgs e)
+        => RunExport(AccountExportFormat.Csv, "CSV 表格 (*.csv)|*.csv", AccountExporter.CsvExtension);
+
+    /// <summary>弹保存框，选完位置再交给面板写文件</summary>
+    private void RunExport(AccountExportFormat format, string filter, string extension)
+    {
+        if (_panel == null) return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "导出账号库",
+            FileName = $"BookmarkVault-账号库-{DateTime.Now:yyyyMMdd-HHmm}{extension}",
+            DefaultExt = extension,
+            Filter = filter,
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+
+        _panel.Export(dialog.FileName, format);
     }
 }

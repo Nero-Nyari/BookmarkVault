@@ -14,6 +14,9 @@ public sealed partial class AccountRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PasswordText))]
     private bool _revealed;
 
+    /// <summary>导出时是否勾选了这行（只影响导出范围，不改变右侧详情面板看的是哪条）</summary>
+    [ObservableProperty] private bool _isExportSelected;
+
     public AccountRowViewModel(AccountEntry model) => Model = model;
 
     public string Domain => Model.Domain;

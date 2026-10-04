@@ -30,7 +30,30 @@ public sealed partial class AccountsPanelViewModel : ObservableObject
     [ObservableProperty] private bool _draftAutoPrompt = true;
     [ObservableProperty] private string? _filterText;
 
+    // ---------- 导出 ----------
+
+    [ObservableProperty] private bool _isExportOpen;
+    /// <summary>是否把明文密码写进表格，默认关闭（导出后 DPAPI 加密就失效了）</summary>
+    [ObservableProperty] private bool _exportIncludePassword;
+
     public string CountText => Rows.Count == 0 ? "还没有记录任何账号" : $"共 {Rows.Count} 个账号";
+
+    /// <summary>勾选了几条 / 共几条。全选框的文案和导出的范围判定都用它</summary>
+    public int SelectedCount => Rows.Count(r => r.IsExportSelected);
+
+    public string SelectionText => $"已勾选 {SelectedCount} / {Rows.Count} 个账号";
+
+    public bool CanExport => Rows.Count > 0;
+
+    /// <summary>列表里有没有内容（勾选工具条按它显示）</summary>
+    public bool HasRows => Rows.Count > 0;
+
+    /// <summary>没勾选任何一条时，导出弹层里说明会导出全部</summary>
+    public string ExportScopeText => Rows.Count == 0
+        ? "账号库是空的，没有可导出的内容"
+        : SelectedCount > 0
+            ? $"将导出已勾选的 {SelectedCount} 个账号"
+            : $"没有勾选任何账号，将导出全部 {Rows.Count} 个账号";
 
     public AccountsPanelViewModel(AccountVault vault, Action persist, Action<string> setStatus)
     {
@@ -44,6 +67,10 @@ public sealed partial class AccountsPanelViewModel : ObservableObject
     public void Reload()
     {
         var selectedId = SelectedRow?.Model.Id;
+        // 重建列表会换掉所有行对象，先把勾选过的 id 记下来，重建后再贴回去
+        var checkedIds = Rows.Where(r => r.IsExportSelected).Select(r => r.Model.Id).ToHashSet();
+
+        foreach (var row in Rows) row.PropertyChanged -= OnRowPropertyChanged;
         Rows.Clear();
 
         IEnumerable<AccountEntry> source = _vault.All();
@@ -55,10 +82,29 @@ public sealed partial class AccountsPanelViewModel : ObservableObject
                 a.Username.Contains(filter, StringComparison.OrdinalIgnoreCase));
 
         foreach (var entry in source.OrderBy(a => a.Domain))
-            Rows.Add(new AccountRowViewModel(entry));
+        {
+            var row = new AccountRowViewModel(entry) { IsExportSelected = checkedIds.Contains(entry.Id) };
+            row.PropertyChanged += OnRowPropertyChanged;
+            Rows.Add(row);
+        }
 
         SelectedRow = Rows.FirstOrDefault(r => r.Model.Id == selectedId) ?? Rows.FirstOrDefault();
         OnPropertyChanged(nameof(CountText));
+        NotifySelectionChanged();
+    }
+
+    private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AccountRowViewModel.IsExportSelected)) NotifySelectionChanged();
+    }
+
+    private void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(ExportScopeText));
     }
 
     /// <summary>打开编辑表单；domain 不为空时预填域名</summary>
@@ -155,6 +201,75 @@ public sealed partial class AccountsPanelViewModel : ObservableObject
     {
         if (row == null) return;
         row.Revealed = !row.Revealed;
+    }
+
+    // ---------- 勾选与导出 ----------
+
+    /// <summary>全选 / 全不选：只作用于当前列表（搜索后就是「所见即所选」）</summary>
+    [RelayCommand]
+    private void ToggleSelectAll()
+    {
+        if (Rows.Count == 0) return;
+        var target = SelectedCount < Rows.Count;
+        foreach (var row in Rows) row.IsExportSelected = target;
+    }
+
+    [RelayCommand]
+    private void SelectNone()
+    {
+        foreach (var row in Rows) row.IsExportSelected = false;
+    }
+
+    [RelayCommand]
+    private void InvertSelection()
+    {
+        foreach (var row in Rows) row.IsExportSelected = !row.IsExportSelected;
+    }
+
+    [RelayCommand]
+    private void OpenExport()
+    {
+        if (Rows.Count == 0)
+        {
+            _setStatus("账号库是空的，没有可导出的内容");
+            return;
+        }
+        ExportIncludePassword = false;
+        IsExportOpen = true;
+    }
+
+    [RelayCommand]
+    private void CancelExport()
+    {
+        IsExportOpen = false;
+        ExportIncludePassword = false;
+    }
+
+    /// <summary>把勾选的账号写到 path（一条都没勾就导出全部）。成功返回 true</summary>
+    public bool Export(string path, AccountExportFormat format)
+    {
+        var checkedRows = Rows.Where(r => r.IsExportSelected).ToList();
+        if (checkedRows.Count == 0) checkedRows = Rows.ToList();
+        if (checkedRows.Count == 0)
+        {
+            _setStatus("账号库是空的，没有可导出的内容");
+            return false;
+        }
+
+        try
+        {
+            AccountExporter.Export(checkedRows.Select(r => r.Model), path, format, ExportIncludePassword);
+        }
+        catch (Exception ex)
+        {
+            _setStatus("导出失败：" + ex.Message);
+            return false;
+        }
+
+        IsExportOpen = false;
+        ExportIncludePassword = false;
+        _setStatus($"已导出 {checkedRows.Count} 个账号到 {System.IO.Path.GetFileName(path)}");
+        return true;
     }
 
     [RelayCommand]

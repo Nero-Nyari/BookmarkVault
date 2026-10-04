@@ -50,6 +50,8 @@ It imports your Edge bookmarks into a desktop app where you can organize, probe 
 
 - Keep accounts for your sites in one place
 - Passwords are encrypted with Windows DPAPI (bound to your Windows account); opening a site can optionally remind you
+- One-click export to a spreadsheet: tick the accounts you want (select all / none / invert) and export to **CSV or Excel (`.xlsx`)**; with nothing ticked, everything is exported
+- "Include plaintext passwords" is an opt-in toggle, off by default; turning it on warns you that DPAPI encryption will be lost
 
 ---
 
@@ -117,7 +119,7 @@ BookmarkVault/
 ├── AssemblyInfo.cs         Assembly attributes
 ├── Converters/             Value converters
 ├── Models/                 Data models (bookmarks, categories, accounts, blacklist, settings)
-├── Services/               Edge reader, HTTP probing, security audit, blacklist, covers, icons, storage
+├── Services/               Edge reader, HTTP probing, security audit, blacklist, covers, icons, account export, storage
 ├── Themes/                 Steam dark theme resources
 ├── ViewModels/             MVVM view models
 ├── Views/                  Standalone pages (accounts, URL database, settings)
