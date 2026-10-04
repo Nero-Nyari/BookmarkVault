@@ -122,8 +122,7 @@ BookmarkVault/
 ├── Services/               Edge reader, HTTP probing, security audit, blacklist, covers, icons, account export, storage
 ├── Themes/                 Steam dark theme resources
 ├── ViewModels/             MVVM view models
-├── Views/                  Standalone pages (accounts, URL database, settings)
-└── 后续功能规划.md          Design notes, implemented checklist and backlog (Chinese)
+└── Views/                  Standalone pages (accounts, URL database, settings)
 ```
 
 ## Tech stack
@@ -131,8 +130,6 @@ BookmarkVault/
 - WPF / .NET 8 (`net8.0-windows`)
 - MVVM via [CommunityToolkit.Mvvm](https://learn.microsoft.com/dotnet/communitytoolkit/mvvm/) 8.4.2 — the project's **only** NuGet dependency
 - Plain JSON storage with atomic writes and self-healing on corruption
-
-For more design notes, trade-offs and the backlog, see [后续功能规划.md](后续功能规划.md) (Chinese).
 
 ## License
 

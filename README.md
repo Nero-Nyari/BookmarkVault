@@ -122,8 +122,7 @@ BookmarkVault/
 ├── Services/               Edge 读取、HTTP 探测、安全评估、黑名单、封面、图标、账号导出、本地存储
 ├── Themes/                 Steam 暗色主题资源
 ├── ViewModels/             MVVM 视图模型
-├── Views/                  独立页面（账号库、网址库、设置）
-└── 后续功能规划.md          设计说明、已实现清单与待办
+└── Views/                  独立页面（账号库、网址库、设置）
 ```
 
 ## 技术栈
@@ -131,8 +130,6 @@ BookmarkVault/
 - WPF / .NET 8（`net8.0-windows`）
 - MVVM，使用 [CommunityToolkit.Mvvm](https://learn.microsoft.com/dotnet/communitytoolkit/mvvm/) 8.4.2 —— 这是整个项目**唯一**的 NuGet 依赖
 - 存储为纯 JSON 文件，原子写入 + 损坏自动备份重建
-
-更多设计细节、实现取舍与后续计划见 [后续功能规划.md](后续功能规划.md)。
 
 ## 许可证
 
