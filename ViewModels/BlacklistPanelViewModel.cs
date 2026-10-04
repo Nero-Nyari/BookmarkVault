@@ -178,6 +178,9 @@ public sealed partial class BlacklistPanelViewModel : ObservableObject
         _editing = null;
     }
 
+    /// <summary>离开网址库时收起编辑表单，否则下次进来会直接停在那一层</summary>
+    public void CloseTransient() => Cancel();
+
     [RelayCommand]
     private void Save()
     {

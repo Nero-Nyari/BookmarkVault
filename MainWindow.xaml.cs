@@ -408,6 +408,18 @@ public partial class MainWindow : Window
         if (_vm.IsMessageOpen) { _vm.CloseMessageCommand.Execute(null); return true; }
         if (_vm.IsFilterOpen) { _vm.CloseFilterCommand.Execute(null); return true; }
 
+        // 账号库 / 网址库这两种状态不在网址详情页，单独判当前页，别影响别处的 Esc
+        if (_vm.MainView == MainViewMode.Accounts)
+        {
+            if (_vm.AccountsPanel.IsExportOpen) { _vm.AccountsPanel.CancelExportCommand.Execute(null); return true; }
+            if (_vm.AccountsPanel.IsEditorOpen) { _vm.AccountsPanel.CancelCommand.Execute(null); return true; }
+        }
+        if (_vm.MainView == MainViewMode.Blacklist && _vm.BlacklistPanel.IsEditorOpen)
+        {
+            _vm.BlacklistPanel.CancelCommand.Execute(null);
+            return true;
+        }
+
         return false;
     }
 

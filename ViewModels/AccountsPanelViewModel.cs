@@ -144,6 +144,14 @@ public sealed partial class AccountsPanelViewModel : ObservableObject
     [RelayCommand]
     private void Cancel() => IsEditorOpen = false;
 
+    /// <summary>离开账号库时收起编辑表单与导出弹层，否则下次进来会直接停在那一层</summary>
+    public void CloseTransient()
+    {
+        IsEditorOpen = false;
+        IsExportOpen = false;
+        ExportIncludePassword = false;
+    }
+
     [RelayCommand]
     private void Save()
     {

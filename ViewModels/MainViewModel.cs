@@ -1464,6 +1464,13 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void BackToDetail() => MainView = MainViewMode.Detail;
 
+    /// <summary>离开账号库 / 网址库时把编辑表单和弹层收掉，避免下次进来还停在那一层</summary>
+    partial void OnMainViewChanged(MainViewMode value)
+    {
+        if (value != MainViewMode.Accounts) AccountsPanel.CloseTransient();
+        if (value != MainViewMode.Blacklist) BlacklistPanel.CloseTransient();
+    }
+
     // ---------- 打开方式（用哪个浏览器打开） ----------
 
     /// <summary>设置页下拉框的固定首项：不指定浏览器，交给系统默认</summary>
